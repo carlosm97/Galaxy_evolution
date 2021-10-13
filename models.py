@@ -28,16 +28,15 @@ def SFR_law(mat, gas, total, k, model_type='cte'):
         tau_SF *= gas**(-1/3)
         tau_SF *= max(mat, 1e-4)**(1/3)     
     elif model_type=='cte':
-        tau_SF = 3.0         #Constant time scale.
+        tau_SF = 3         #Constant time scale.
 #    print(mat, gas,total, tau_SF)
     return mat/tau_SF
 
-include_atom = .3
-include_mol = 1
-
-
+#include_atom = .3
+#include_mol = 1
 class Model:
-        def equations(self, current_time, current_state, model_type='cte'):
+        def equations(self, current_time, current_state):#, model_type='cte',\
+            #          include_atom = .0,include_mol = 1):
             ion, atom, mol, stars, metals = current_state
             gas = ion + atom + mol
             pressure = gas * (gas + stars)     
@@ -49,8 +48,8 @@ class Model:
                     atom/self.tau_cold * pressure/(1+self.mu_cold*R_mol)
                     * (Z + self.Z_eff)/self.Z_sun
                     )
-            mat = include_atom*atom + include_mol*mol
-            Psi = SFR_law(mat, gas, total, self.K, model_type)
+            mat = self.include_atom*atom + self.include_mol*mol
+            Psi = SFR_law(mat, gas, total, self.K, self.model_type)
             
             eta_ion_eff = self.eta_ion * (1 - np.exp(-atom/8e-4))
             eta_diss_eff = self.eta_dis * (1 - np.exp(-mol/1.5e-4))#8e-3
@@ -58,15 +57,16 @@ class Model:
                 + ((1-self.enriched_wind)*self.R
                    + eta_ion_eff - self.wind*ion/gas) * Psi
             dadt = recombination - cloud_formation \
-                + (eta_diss_eff - eta_ion_eff - self.wind*atom/gas  - atom/mat*include_atom) * Psi
-            dmdt = cloud_formation - (mol/mat*include_mol + eta_diss_eff + self.wind*R_mol) * Psi
-            
-            
+                + (eta_diss_eff - eta_ion_eff - self.wind*atom/gas  - atom/mat*self.include_atom) * Psi
+            dmdt = cloud_formation - (mol/mat*self.include_mol + eta_diss_eff + self.wind*R_mol) * Psi
             dsdt = (1-self.R)*Psi
             dodt = ((1-self.enriched_wind)*self.Z_R*self.R - (1+self.wind)*Z) * Psi      
             return [didt, dadt, dmdt, dsdt, dodt]
             
         def __init__(self,
+                     model_type,
+                     include_atom = 0.0,
+                     include_mol = 1.,
                      Sigma_I=100.,  # Msun/pc^2                                     
                      tau_I=3.,  # Gyr
                      T_warm=1.,  # 1e4 K                                        
@@ -75,7 +75,7 @@ class Model:
                      tau_SF=3.,  # Gyr
                      T1_Twarm=5., # 1
                      eta_ion=100.,
-                     eta_dis=10., #100 for variable model and 75 for cte.
+                     eta_dis=50., #100 for variable model and 10 for cte.
                      R=0.17,
                      Z_R=0.06,
                      wind=3,
@@ -84,6 +84,9 @@ class Model:
                      Z_sun=0.006,
                      K = 3
                      ):
+            self.include_atom=include_atom
+            self.include_mol=include_mol
+            self.model_type=model_type
             self.K = K
             self.I_0 = Sigma_I/tau_I/(1-np.exp(-today/tau_I))#v
             self.tau_I = tau_I
@@ -112,10 +115,10 @@ class Model:
 #r = Model().result.y[:, -1]
 #print(r, np.sum(r[:-1]))
 
-def model_run(S_I, K, model_type='cte', **kwargs):
+def model_run(S_I, K, model_type='cte',include_atom = .0,include_mol = 1, **kwargs):
     result = []
     for Sigma_I in S_I:
-        m = Model(Sigma_I=Sigma_I, K = K, **kwargs)
+        m = Model(model_type=model_type,Sigma_I=Sigma_I,include_atom = include_atom,include_mol=include_mol, K = K,**kwargs)
         result.append(m.result.y[:, -1])    # -1 last element.   
     result = np.array(result)
         
