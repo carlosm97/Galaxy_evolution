@@ -216,13 +216,13 @@ def column_plot(x, plots, color, save=True, title=None):
 #    fig.savefig(os.path.join(base_dir, plots[0]+'.png'))
     #plt.close()
     '''
-    fs=7
+    fs=15
     # Set dimensions
 
     n_plots = len(plots)
-    panel_width = 4  # inches
+    panel_width = 6  # inches
     #panel_height = panel_width/1.5
-    panel_height = panel_width/np.power(n_plots, .3)
+    panel_height = panel_width/np.power(n_plots, .5)
     cbar_height = .07*panel_height
     big_margin = .15*panel_width
     small_margin = big_margin/3
@@ -280,12 +280,12 @@ def column_plot(x, plots, color, save=True, title=None):
 Cons=[100]#np.linspace(400,800,1)# Use the loop to look for the best value of K, with the rest of parameters fixed. 
 for CO in Cons: 
     print(CO)
-    S_I = np.logspace(0, 4, 50)
+    S_I = np.logspace(0, 4, 10)
     kwargs = {'tau_SF': 1.5, 'wind': 2.}
-    tau_0 = models.model_run(S_I, model_type='cte', K=CO,  tau_I=1e-3, include_atom =.3, **kwargs)
-    tau_2 = models.model_run(S_I, model_type='cte', K=CO, tau_I=2., include_atom =.3, **kwargs)
-    tau_4 = models.model_run(S_I, model_type='cte', K=CO, tau_I=4., include_atom =.3, **kwargs)
-    tau_inf = models.model_run(S_I, model_type='cte', K=CO, tau_I=1e3, include_atom =.3, **kwargs)
+    tau_0 = models.model_run(S_I, model_type='cte', K=CO,  tau_I=1e-3, include_atom =.2, **kwargs)
+    tau_2 = models.model_run(S_I, model_type='cte', K=CO, tau_I=2., include_atom =.2, **kwargs)
+    tau_4 = models.model_run(S_I, model_type='cte', K=CO, tau_I=4., include_atom =.2, **kwargs)
+    tau_inf = models.model_run(S_I, model_type='cte', K=CO, tau_I=1e3, include_atom =.2, **kwargs)
     
     'Aquí usamos model'
     
@@ -319,16 +319,16 @@ for CO in Cons:
     
     # Parameters for each quantity
     plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']#'SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr'
-    column_plot('stars', plot_list, 'OH')
-    #column_plot('P', plot_list, 'OH')
+    column_plot('stars', plot_list, 'OH',title='_cte_atom_')
+    #column_plot('P', plot_list, 'OH',title=)
     #plt.title(CO)
 
-    
+    kwargs = {'wind': 1.5}   
     #tau_0 = models.model_run(S_I,  K=50, include_atom =.5, tau_I=1e-3,model_type='variable', eta_dis=10,**kwargs)
-    tau_2 = models.model_run(S_I,  K=50, include_atom =.5, tau_I=2.,model_type='variable', eta_dis=10,**kwargs)
-    tau_4 = models.model_run(S_I,  K=50, include_atom =.5, tau_I=4.,model_type='variable', eta_dis=10,**kwargs)
-    tau_inf = models.model_run(S_I, K=50, include_atom =.5, tau_I=1e3,model_type='variable', eta_dis=10,**kwargs)
-    
+    tau_2 = models.model_run(S_I,  K=100, include_atom =1, tau_I=2.,model_type='variable', eta_dis=100,**kwargs)
+    tau_4 = models.model_run(S_I,  K=100, include_atom =1, tau_I=4.,model_type='variable', eta_dis=100,**kwargs)
+    tau_inf = models.model_run(S_I, K=100, include_atom =1, tau_I=1e3,model_type='variable', eta_dis=100,**kwargs)
+    # K=50.,
     
     #model_list = [tau_0, tau_2, tau_4, tau_inf] #[tau_0, 
     model_list = [tau_2, tau_4, tau_inf] 
@@ -360,11 +360,10 @@ for CO in Cons:
     
     # Parameters for each quantity
     plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']
-    column_plot('stars', plot_list, 'OH',save=False)
-    #column_plot('P', plot_list, 'OH',save=False)
+    column_plot('stars', plot_list, 'OH',title='_variable_atom_')
+    #column_plot('P', plot_list, 'OH',title=)
 
 # In[WITHOUT_ATOMS]
-
 
 Cons=[100]#np.linspace(400,800,1)# Use the loop to look for the best value of K, with the rest of parameters fixed. 
 for CO in Cons: 
@@ -405,8 +404,8 @@ for CO in Cons:
     
     # Parameters for each quantity
     plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']#'SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr'
-    column_plot('stars', plot_list, 'OH',save=False)
-    #column_plot('P', plot_list, 'OH')
+    column_plot('stars', plot_list, 'OH',title='_cte_')
+    #column_plot('P', plot_list, 'OH',title=)
     
     tau_0 = models.model_run(S_I, K=50,  tau_I=1e-3,model_type='variable',eta_dis=10, **kwargs)
     tau_2 = models.model_run(S_I,  K=50, tau_I=2.,model_type='variable',eta_dis=10,  **kwargs)
@@ -443,19 +442,8 @@ for CO in Cons:
     
     # Parameters for each quantity
     plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']
-    column_plot('stars', plot_list, 'OH',save=False)
-    #column_plot('P', plot_list, 'OH',save=False)
-
-
-
-
-
-
-
-
-
-
-# Buscar valores para que sea valor de include_atom=0 y mejorar el modelo de caida libre... 
+    column_plot('stars', plot_list, 'OH',title='_variable_')
+    #column_plot('P', plot_list, 'OH',title=)
 
 # <codecell> tests
 
