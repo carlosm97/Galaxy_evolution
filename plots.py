@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import astropy.io.fits as fits
 import os
-os.chdir('/home/carlos/Desktop/TFG2')
+os.chdir('/home/carlos/Desktop/Paper_TFG/TFG2')
 import models
                                                                              
 if '__file__' in globals():
@@ -17,7 +17,7 @@ else:
 
 # <codecell> Read data
 
-# CALIFA (SÃ¡nchez et al. ???)
+# CALIFA (Sánchez et al. ???)
 plt.close('all')
 CALIFA_dir = os.path.join('./input/CALIFA')#base_dir, 'input', 'CALIFA')
 CALIFA_log_Sigma_Mass_stars = []
@@ -83,9 +83,19 @@ MW['SFR'] = 10**np.array([-.37, .603, .706, .983, 1.163, 1.185, 1.181, .963, .72
 MW['OH'] = np.array([9.02, 8.86, 8.74, 8.62, 8.82, 8.83, 8.77, 8.69, 8.56, 8.60, 8.45, 8.41, 8.44, 8.44, 8.42, 8.14, 8.14, 8.19, 7.96, np.NaN, np.NaN])
 
 
-# %% Derived quantities
+# <codecell> Derived observational quantities
 
 def compute_derived(*args):
+    '''
+    Function to derive:
+        P : Pressure
+        SFE : Star Formation Efficiecy
+        SSFR : Specific Star Formation Rate 
+        Rmol : Ratio of molecular to atomic hydrogen
+        SFmol : Star Formation rate per molecular density
+        s : Number of stars per gas density 
+        sfr : Star Formation Rate
+        '''
     for dataset in args:
         dataset['P'] = dataset['gas'] * (dataset['gas'] + dataset['stars'])
         dataset['SFE'] = dataset['SFR']/dataset['gas']                      # Overestimation of gas. Maybe related with underestimation of metallicity
@@ -94,13 +104,14 @@ def compute_derived(*args):
         dataset['SFmol'] = dataset['SFR']/dataset['H2']
         dataset['s'] = dataset['stars']/dataset['gas']                      # How many gas is containing in stars. 
         dataset['sfr'] = dataset['SFR']
-        
+
 data_list = [CALIFA, THINGS, MW]
+# Conversion of observations to parameters to plot. 
 compute_derived(*data_list)
 
 
-# <codecell> Models                                                   
-plt.close('all')
+# <codecell> Models & plotting functions                                               
+#plt.close('all')
 class plot_pars:
     """ Settings for each quantity to be plotted """
     def __init__(self, title, xmin, xmax, scale='log',
@@ -114,7 +125,7 @@ class plot_pars:
         self.norm = norm(xmin if np.isnan(cmin) else cmin,
                          xmax if np.isnan(cmax) else cmax)
 
-
+# We define the setting of the observables to plot: title and limits. 
 pars = {}
 pars['stars'] = plot_pars('$\\Sigma_*$ [M$_\\odot$ pc$^{-2}$]', .3, 3e4)
 #pars['stars'] = plot_pars('Densidad superficial de estrellas [M$_\\odot$ pc$^{-2}$]', .3, 3e4)
@@ -129,97 +140,43 @@ pars['P'] = plot_pars(
        'Presión [M$_\\odot$ pc$^{-2}$]',
        3, 3e6)
 pars['Rmol'] = plot_pars('$\\Sigma_{\\rm H_2}$ / $\\Sigma_{\\rm HI}$', 3e-2, 3e3)
-pars['SFmol'] = plot_pars('$\\Psi/\\Sigma_{\\rm H_2}$', 3e-2, 3e1)
+pars['SFmol'] = plot_pars('$\Sigma_{\\psi}/\\Sigma_{\\rm H_2}$', 3e-2, 3e1)
 pars['sfr'] = plot_pars('SFR[Gyr$^{-1}$]', 3e-2, 3e2)
 
 # Function definitions
 
 def plot_data(x, y, color, ax):
-    """ Plot all datasets """
+    """ 
+    Plot all datasets. For each, it plots both the observations and the models
+    """
     cbar = pars[color]
-    for dataset in data_list:
+    for dataset in data_list: # For all the observations, 
         xx = dataset[x]
         yy = dataset[y]
         c = dataset[color]
         m = dataset['marker']
         e = dataset['edge']
         s = dataset['size']
-        a = dataset['alpha']
-        sc = ax.scatter(xx, yy, s=s, c=c, marker=m,
+        a = dataset['alpha']   
+        sc = ax.scatter(xx, yy, s=s, c=c, marker=m,   # PLOT THE DATA
                         edgecolors=e, linewidths=.2,
                         cmap=cbar.cmap, norm=cbar.norm, alpha=a)
         bad_color = np.where(np.isnan(c))
         
         ax.plot(xx[bad_color], yy[bad_color], color='gray', linestyle='None',
                 marker=m, ms=s, alpha=a*.1)
-
-    for model in model_list:
+    for model in model_list: # For the models, PLOT THE MODELS 
         ax.plot(model[x], model[y],
-                marker='None', color=model['color'], linestyle=model['style'])
+                marker='+', color=model['color'], linestyle=model['style'])
 
     return sc
 
 def column_plot(x, plots, color, save=True, title=None):
     """ Plot a set of quantities as a function of x, colored by color """
-    '''
-    # Set dimensions
-    n_plots = len(plots)
-    panel_width = 7  # inches 5
-    #panel_height = panel_width/1.5
-    panel_height = panel_width/np.power(n_plots, .3)
-    cbar_height = .07*panel_height
-    big_margin = .15*panel_width
-    small_margin = big_margin/3
-
-    width = big_margin + panel_width + small_margin
-    height = (big_margin + n_plots*panel_height  # plots
-              + big_margin + cbar_height + big_margin)  # color bar
-
-    fig = plt.figure(figsize=(width, height))
-
-    left = big_margin/width
-    bottom = big_margin/height
-    panel_width /= width
-    panel_height /= height
-    cbar_height /= height
-
-    # Plot data
-
-    xmin = pars[x].xmin
-    xmax = pars[x].xmax
-    xscale = pars[x].scale
-
-    for i, y in enumerate(plots):
-        ax = fig.add_axes([left, bottom+i*panel_height,
-                           panel_width, panel_height])
-
-        ax.set_xlim(xmin, xmax)
-        ax.set_xscale(xscale)
-        if i == 0:
-            ax.set_xlabel(pars[x].title)
-        ax.set_ylim(pars[y].xmin, pars[y].xmax)
-        ax.set_yscale(pars[y].scale)
-        ax.set_ylabel(pars[y].title)
-        ax.tick_params(axis='both', which='both', direction='in',
-                       top=True, right=True, labelbottom=(i == 0))
-        sc = plot_data(x, y, color, ax)
-
-    # Color bar
-
-    ax_cbar = fig.add_axes([left, bottom+n_plots*panel_height+bottom,
-                            panel_width, cbar_height])
-    cbar = pars[color]
-    bar = plt.colorbar(sc, cmap=cbar.cmap, norm=cbar.norm, orientation='horizontal')
-    bar.solids.set_alpha(1)
-    ax_cbar.set_title(cbar.title)
-#    fig.savefig(os.path.join('./paper/figs/',x+'gas.pdf'))#base_dir, 'paper', 'figs', x+'.pdf'))#################
-#    fig.savefig(os.path.join(base_dir, plots[0]+'.png'))
-    #plt.close()
-    '''
-    fs=15
+    fs=15 # fontsize
     # Set dimensions
 
-    n_plots = len(plots)
+    n_plots = len(plots) # number of plots
     panel_width = 6  # inches
     #panel_height = panel_width/1.5
     panel_height = panel_width/np.power(n_plots, .5)
@@ -245,10 +202,9 @@ def column_plot(x, plots, color, save=True, title=None):
     xmax = pars[x].xmax
     xscale = pars[x].scale
 
-    for i, y in enumerate(plots):
+    for i, y in enumerate(plots):              # Loop over the different plots. 
         ax = fig.add_axes([left, bottom+i*panel_height,
-                           panel_width, panel_height])
-
+                           panel_width, panel_height])   # add a plot
         ax.set_xlim(xmin, xmax)
         ax.set_xscale(xscale)
         if i == 0:
@@ -258,10 +214,9 @@ def column_plot(x, plots, color, save=True, title=None):
         ax.set_ylabel(pars[y].title,fontsize=fs)
         ax.tick_params(axis='both', which='both', direction='in',
                        top=True, right=True, labelbottom=(i == 0),labelsize=fs)
-        sc = plot_data(x, y, color, ax)
+        sc = plot_data(x, y, color, ax) #Plotting data and models (see function above)
 
     # Color bar
-
     ax_cbar = fig.add_axes([left, bottom+n_plots*panel_height+bottom,
                             panel_width, cbar_height])
     cbar = pars[color]
@@ -271,180 +226,124 @@ def column_plot(x, plots, color, save=True, title=None):
     ax_cbar.set_title(cbar.title,fontsize=fs)
     if save==True and title==None:
         fig.savefig(os.path.join('./paper/figs/',x+'Ysfr.pdf'))
+        fig.savefig(os.path.join('./paper/figs/',x+'Ysfr.jpeg'))
+
     elif save==True and title!=None:
-         fig.savefig(os.path.join('./paper/figs/',title+x+'Ysfr.pdf'))       
+        fig.savefig(os.path.join('./paper/figs/',title+x+'Ysfr.pdf'))     
+        fig.savefig(os.path.join('./paper/figs/',title+x+'Ysfr.jpeg'))       
     #plt.close()
    
+# <codecell> Marker definition:
     
-    
-Cons=[100]#np.linspace(400,800,1)# Use the loop to look for the best value of K, with the rest of parameters fixed. 
-for CO in Cons: 
-    print(CO)
-    S_I = np.logspace(0, 4, 10)
-    kwargs = {'tau_SF': 1.5, 'wind': 2.}
-    tau_0 = models.model_run(S_I, model_type='cte', K=CO,  tau_I=1e-3, include_atom =.2, **kwargs)
-    tau_2 = models.model_run(S_I, model_type='cte', K=CO, tau_I=2., include_atom =.2, **kwargs)
-    tau_4 = models.model_run(S_I, model_type='cte', K=CO, tau_I=4., include_atom =.2, **kwargs)
-    tau_inf = models.model_run(S_I, model_type='cte', K=CO, tau_I=1e3, include_atom =.2, **kwargs)
-    
-    'Aquí usamos model'
-    
-    
-    model_list = [tau_0, tau_2, tau_4, tau_inf] #[tau_0, 
-    compute_derived(*model_list)
-    
-    CALIFA['marker'] = 'o'
-    CALIFA['edge'] = 'face'
-    CALIFA['size'] = 5
-    CALIFA['alpha'] = 0.2
-    
-    THINGS['marker'] = 's'
-    THINGS['edge'] = 'face'
-    THINGS['size'] = 5
-    THINGS['alpha'] = 1
-    
-    MW['marker'] = '*'
-    MW['edge'] = 'k'
-    MW['size'] = 20
-    MW['alpha'] = 1
-    
-    tau_0['color'] = 'red'
-    tau_2['color'] = 'red'
-    tau_4['color'] = 'blue'
-    tau_inf['color'] = 'blue'
-    tau_0['style'] = '-'
-    tau_2['style'] = '--'
-    tau_4['style'] = '-.'
-    tau_inf['style'] = ':'
-    
-    # Parameters for each quantity
-    plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']#'SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr'
-    column_plot('stars', plot_list, 'OH',title='_cte_atom_')
-    #column_plot('P', plot_list, 'OH',title=)
-    #plt.title(CO)
+CALIFA['marker'] = 'o'
+CALIFA['edge'] = 'face'
+CALIFA['size'] = 5
+CALIFA['alpha'] = 0.2
 
-    kwargs = {'wind': 1.5}   
-    #tau_0 = models.model_run(S_I,  K=50, include_atom =.5, tau_I=1e-3,model_type='variable', eta_dis=10,**kwargs)
-    tau_2 = models.model_run(S_I,  K=100, include_atom =1, tau_I=2.,model_type='variable', eta_dis=100,**kwargs)
-    tau_4 = models.model_run(S_I,  K=100, include_atom =1, tau_I=4.,model_type='variable', eta_dis=100,**kwargs)
-    tau_inf = models.model_run(S_I, K=100, include_atom =1, tau_I=1e3,model_type='variable', eta_dis=100,**kwargs)
-    # K=50.,
-    
-    #model_list = [tau_0, tau_2, tau_4, tau_inf] #[tau_0, 
-    model_list = [tau_2, tau_4, tau_inf] 
-    compute_derived(*model_list)
-    
-    CALIFA['marker'] = 'o'
-    CALIFA['edge'] = 'face'
-    CALIFA['size'] = 5
-    CALIFA['alpha'] = 0.2
-    
-    THINGS['marker'] = 's'
-    THINGS['edge'] = 'face'
-    THINGS['size'] = 5
-    THINGS['alpha'] = 1
-    
-    MW['marker'] = '*'
-    MW['edge'] = 'k'
-    MW['size'] = 20
-    MW['alpha'] = 1
-    
-    #tau_0['color'] = 'red'
-    tau_2['color'] = 'red'
-    tau_4['color'] = 'blue'
-    tau_inf['color'] = 'blue'
-    #tau_0['style'] = '-'
-    tau_2['style'] = '--'
-    tau_4['style'] = '-.'
-    tau_inf['style'] = ':'
-    
-    # Parameters for each quantity
-    plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']
-    column_plot('stars', plot_list, 'OH',title='_variable_atom_')
-    #column_plot('P', plot_list, 'OH',title=)
+THINGS['marker'] = 's'
+THINGS['edge'] = 'face'
+THINGS['size'] = 5
+THINGS['alpha'] = 1
 
-# In[WITHOUT_ATOMS]
+MW['marker'] = '*'
+MW['edge'] = 'k'
+MW['size'] = 20
+MW['alpha'] = 1
+# POSSIBILITY: Use a loop to look for the best value of K, with the rest of parameters fixed.     
+S_I = np.logspace(0, 4, 10) # Different values of material already accreted. 
+# <codecell> CM
+runcell('Models & plotting functions', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
+kwargs = {'tau_SF': 1.5, 'wind': 2.}
+tau_0 = models.model_run(S_I, model_type='cte',  tau_I=1e-3, **kwargs)
+tau_2 = models.model_run(S_I, model_type='cte', tau_I=2., **kwargs)
+tau_4 = models.model_run(S_I, model_type='cte', tau_I=4., **kwargs)
+tau_inf = models.model_run(S_I, model_type='cte', tau_I=1e3, **kwargs)
 
-Cons=[100]#np.linspace(400,800,1)# Use the loop to look for the best value of K, with the rest of parameters fixed. 
-for CO in Cons: 
-    print(CO)
-    S_I = np.logspace(0, 4, 50)
-    kwargs = {'tau_SF': 1.5, 'wind': 2.}
-    tau_0 = models.model_run(S_I, model_type='cte', K=CO,  tau_I=1e-3, **kwargs)
-    tau_2 = models.model_run(S_I, model_type='cte', K=CO, tau_I=2., **kwargs)
-    tau_4 = models.model_run(S_I, model_type='cte', K=CO, tau_I=4., **kwargs)
-    tau_inf = models.model_run(S_I, model_type='cte', K=CO, tau_I=1e3, **kwargs)
-    
-    model_list = [tau_0, tau_2, tau_4, tau_inf] #[tau_0, 
-    compute_derived(*model_list)
-    
-    CALIFA['marker'] = 'o'
-    CALIFA['edge'] = 'face'
-    CALIFA['size'] = 5
-    CALIFA['alpha'] = 0.2
-    
-    THINGS['marker'] = 's'
-    THINGS['edge'] = 'face'
-    THINGS['size'] = 5
-    THINGS['alpha'] = 1
-    
-    MW['marker'] = '*'
-    MW['edge'] = 'k'
-    MW['size'] = 20
-    MW['alpha'] = 1
-    
-    tau_0['color'] = 'red'
-    tau_2['color'] = 'red'
-    tau_4['color'] = 'blue'
-    tau_inf['color'] = 'blue'
-    tau_0['style'] = '-'
-    tau_2['style'] = '--'
-    tau_4['style'] = '-.'
-    tau_inf['style'] = ':'
-    
-    # Parameters for each quantity
-    plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']#'SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr'
-    column_plot('stars', plot_list, 'OH',title='_cte_')
-    #column_plot('P', plot_list, 'OH',title=)
-    
-    tau_0 = models.model_run(S_I, K=50,  tau_I=1e-3,model_type='variable',eta_dis=10, **kwargs)
-    tau_2 = models.model_run(S_I,  K=50, tau_I=2.,model_type='variable',eta_dis=10,  **kwargs)
-    tau_4 = models.model_run(S_I,  K=50, tau_I=4.,model_type='variable',eta_dis=10, **kwargs)
-    tau_inf = models.model_run(S_I, K=50, tau_I=1e3,model_type='variable',eta_dis=10, **kwargs)
-    
-    
-    model_list = [tau_0, tau_2, tau_4, tau_inf] 
-    compute_derived(*model_list)
-        
-    CALIFA['marker'] = 'o'
-    CALIFA['edge'] = 'face'
-    CALIFA['size'] = 5
-    CALIFA['alpha'] = 0.2
-    
-    THINGS['marker'] = 's'
-    THINGS['edge'] = 'face'
-    THINGS['size'] = 5
-    THINGS['alpha'] = 1
-    
-    MW['marker'] = '*'
-    MW['edge'] = 'k'
-    MW['size'] = 20
-    MW['alpha'] = 1
-    
-    tau_0['color'] = 'red'
-    tau_2['color'] = 'red'
-    tau_4['color'] = 'blue'
-    tau_inf['color'] = 'blue'
-    tau_0['style'] = '-'
-    tau_2['style'] = '--'
-    tau_4['style'] = '-.'
-    tau_inf['style'] = ':'
-    
-    # Parameters for each quantity
-    plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']
-    column_plot('stars', plot_list, 'OH',title='_variable_')
-    #column_plot('P', plot_list, 'OH',title=)
+model_list = [tau_0, tau_2, tau_4, tau_inf] #[tau_0, 
+compute_derived(*model_list)
+tau_0['color'], tau_0['style'] = 'red','-'
+tau_2['color'], tau_2['style'] = 'red','--'
+tau_4['color'], tau_4['style']  = 'blue', '-.'
+tau_inf['color'], tau_inf['style'] = 'blue', ':'
 
+plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']#'SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr'
+column_plot('stars', plot_list, 'OH',title='_cte_')
+plt.title('CM')
+del plot_list,tau_0,tau_2,tau_4,tau_inf,model_list
+# <codecell> CM+A
+runcell('Models & plotting functions', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
+kwargs = {'tau_SF': 1.5, 'wind': 2.}
+tau_0 = models.model_run(S_I, model_type='cte',  tau_I=1e-3, include_atom =.2, **kwargs)
+tau_2 = models.model_run(S_I, model_type='cte', tau_I=2., include_atom =.2, **kwargs)
+tau_4 = models.model_run(S_I, model_type='cte', tau_I=4., include_atom =.2, **kwargs)
+tau_inf = models.model_run(S_I, model_type='cte', tau_I=1e3, include_atom =.2, **kwargs)
+
+model_list = [tau_0, tau_2, tau_4, tau_inf] 
+compute_derived(*model_list)
+
+tau_0['color'], tau_0['style'] = 'red','-'
+tau_2['color'], tau_2['style'] = 'red','--'
+tau_4['color'], tau_4['style']  = 'blue', '-.'
+tau_inf['color'], tau_inf['style'] = 'blue', ':'
+
+
+# Parameters for each quantity
+plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']#'SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr'
+column_plot('stars', plot_list, 'OH',title='_cte_atom_')
+plt.title('CM+A')
+del plot_list,tau_0,tau_2,tau_4,tau_inf,model_list
+# <codecell> FFM 
+runcell('Models & plotting functions', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
+kwargs = {'wind': 2} 
+tau_0 = models.model_run(S_I, K=.02,  tau_I=1e-3,model_type='variable',eta_dis=100, **kwargs)
+tau_2 = models.model_run(S_I,  K=.02, tau_I=2.,model_type='variable',eta_dis=100,  **kwargs)
+tau_4 = models.model_run(S_I,  K=.02, tau_I=4.,model_type='variable',eta_dis=100, **kwargs)
+tau_inf = models.model_run(S_I, K=.02, tau_I=1e3,model_type='variable',eta_dis=100, **kwargs)
+
+model_list = [tau_0, tau_2, tau_4, tau_inf] 
+compute_derived(*model_list)
+
+tau_0['color'], tau_0['style'] = 'red','-'
+tau_2['color'], tau_2['style'] = 'red','--'
+tau_4['color'], tau_4['style']  = 'blue', '-.'
+tau_inf['color'], tau_inf['style'] = 'blue', ':'
+
+plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']
+column_plot('stars', plot_list, 'OH',title='_variable_')
+plt.title('FFM')
+del plot_list,tau_0,tau_2,tau_4,tau_inf,model_list
+# <codecell> FFM+A
+runcell('Models & plotting functions', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
+kwargs = {'wind': 1}   
+tau_0 = models.model_run(S_I,  K=.002, include_atom =1, tau_I=1e-3,model_type='variable', eta_dis=100,**kwargs)
+tau_2 = models.model_run(S_I,  K=.002, include_atom =1, tau_I=2.,model_type='variable', eta_dis=100,**kwargs)
+tau_4 = models.model_run(S_I,  K=.002, include_atom =1, tau_I=4.,model_type='variable', eta_dis=100,**kwargs)
+tau_inf = models.model_run(S_I, K=.002, include_atom =1, tau_I=1e3,model_type='variable', eta_dis=100,**kwargs)
+# K=50.,
+
+model_list = [tau_0, tau_2, tau_4, tau_inf] 
+compute_derived(*model_list)
+tau_0['color'], tau_0['style'] = 'red','-'
+tau_2['color'], tau_2['style'] = 'red','--'
+tau_4['color'], tau_4['style'] = 'blue', '-.'
+tau_inf['color'], tau_inf['style'] = 'blue', ':'
+
+plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']
+column_plot('stars', plot_list, 'OH',title='_variable_atom')
+plt.title('FFM+A')
+del plot_list,tau_0,tau_2,tau_4,tau_inf,model_list
+# <codecell> Running selected models. 
+
+plt.close('all')
+#runcell('Marker definition:', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
+#runcell('CM', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
+#runcell('CM+A', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
+runcell('FFM', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
+runcell('FFM+A', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
+
+
+
+#tutorial
 # <codecell> tests
 
 #column_plot('stars', ['gas'], 'OH')
