@@ -7,19 +7,17 @@ import matplotlib.colors as colors
 import astropy.io.fits as fits
 import os
 os.chdir('/home/carlos/Desktop/Paper_TFG/TFG2')
-import models
+import models_new as models
                                                                              
 if '__file__' in globals():
     base_dir = os.path.join(os.path.dirname(__file__), '..', '..')
 else:
     base_dir = os.path.join('..', '..')  # assume this is the working directory
-
-
 # <codecell> Read data
 
 # CALIFA (Sánchez et al. ???)
 plt.close('all')
-CALIFA_dir = os.path.join('./input/CALIFA')#base_dir, 'input', 'CALIFA')
+CALIFA_dir = os.path.join('./input/CALIFA')
 CALIFA_log_Sigma_Mass_stars = []
 CALIFA_log_Sigma_SFR = []
 CALIFA_log_Sigma_Mass_gas = []
@@ -27,13 +25,9 @@ CALIFA_OH_O3N2 = []
 for filename in os.listdir(CALIFA_dir):
     try:
         with fits.open(os.path.join(CALIFA_dir, filename)) as hdu:
-            # print(filename)
-            # hdu.info()
             CALIFA_log_Sigma_Mass_stars.append(hdu[0].data[0, 1, :])  # Msun/pc^2
             CALIFA_log_Sigma_SFR.append(hdu[0].data[1, 1, :])  # Msun/pc^2/yr
             CALIFA_log_Sigma_Mass_gas.append(hdu[0].data[2, 1, :])  # Msun/pc^2
-#            CALIFA_log_Sigma_Mass_gas_ssp.append(hdu[0].data[3, 1, :])  # ???
-#            CALIFA_OH_t2.append(hdu[0].data[8, 1, :])  # 12 + log(O/H)
             CALIFA_OH_O3N2.append(hdu[0].data[9, 1, :])  # 12 + log(O/H)
     except OSError:
         print('Ignoring', filename)
@@ -74,7 +68,6 @@ THINGS['OH'] = Z0 - dZdR*R_L08
 # Milky Way (MollÃ¡ et al. 2015)
 
 MW = {}
-#MW_R    = np.array([     0,     1,     2,    3,    4,    5,    6,    7,    8,    9,   10,   11,   12,   13,   14,   15,   16,     17,    18,    19,    20])
 MW['stars'] = 10**np.array([np.NaN, np.NaN, np.NaN, 2.43, 2.50, 2.40, 2.25, 2.09, 1.95, 1.79, 1.69, 1.51, 1.38, 1.25, 1.09, 0.94, 0.80, np.NaN, np.NaN, np.NaN, np.NaN])
 MW['HI'] = np.array([9.41, 3.97, 2.37, 2.39, 3.86, 5.06, 5.04, 5.44, 5.69, 7.69, 6.52, 6.16, 5.63, 4.83, 3.65, 2.96, 2.42, 2.15, 1.61, 1.18, 1.1])
 MW['H2'] = np.array([0.30, 3.82, 5.18, 3.48, 5.69, 8.28, 8.47, 4.59, 3.15, 2.44, 1.96, 1.24, 0.99, 0.57, 0.82, 1.09, .20, .13, .08, .03, np.NaN])
@@ -98,20 +91,21 @@ def compute_derived(*args):
         '''
     for dataset in args:
         dataset['P'] = dataset['gas'] * (dataset['gas'] + dataset['stars'])
-        dataset['SFE'] = dataset['SFR']/dataset['gas']                      # Overestimation of gas. Maybe related with underestimation of metallicity
+        dataset['SFE'] = dataset['SFR']/dataset['gas']
         dataset['SSFR'] = dataset['SFR']/dataset['stars']
-        dataset['Rmol'] = dataset['H2']/dataset['HI']
+        dataset['Rmol'] = dataset['H2']/dataset['HI'] #* dataset['OH']/dataset['gas']/0.006
         dataset['SFmol'] = dataset['SFR']/dataset['H2']
-        dataset['s'] = dataset['stars']/dataset['gas']                      # How many gas is containing in stars. 
+        dataset['s'] = dataset['stars']/dataset['gas']
         dataset['sfr'] = dataset['SFR']
 
 data_list = [CALIFA, THINGS, MW]
+
 # Conversion of observations to parameters to plot. 
 compute_derived(*data_list)
 
 
 # <codecell> Models & plotting functions                                               
-#plt.close('all')
+
 class plot_pars:
     """ Settings for each quantity to be plotted """
     def __init__(self, title, xmin, xmax, scale='log',
@@ -128,19 +122,17 @@ class plot_pars:
 # We define the setting of the observables to plot: title and limits. 
 pars = {}
 pars['stars'] = plot_pars('$\\Sigma_*$ [M$_\\odot$ pc$^{-2}$]', .3, 3e4)
-#pars['stars'] = plot_pars('Densidad superficial de estrellas [M$_\\odot$ pc$^{-2}$]', .3, 3e4)
-pars['gas'] = plot_pars('$\\Sigma_{gas}$ [M$_\\odot$ pc$^{-2}$]', 3e-2, 3e3)
+pars['gas'] = plot_pars('$\\Sigma_{gas}$ [M$_\\odot$ pc$^{-2}$]', 3e-1, 3e3)
 pars['SSFR'] = plot_pars('SSFR [Gyr$^{-1}$]', 3e-5, 3)
-pars['SFE'] = plot_pars('SFE [Gyr$^{-1}$]', 3e-3, 3e2)
+pars['SFE'] = plot_pars('SFE [Gyr$^{-1}$]', 3e-3, 3e1)
 pars['OH'] = plot_pars('12 + log(O/H)', 7.9, 9.1, 'linear', 8.25, 8.55)
-#pars['P'] = plot_pars(
-#       '$\\Sigma_{gas} (\\Sigma_{gas}+\\Sigma_*)$ [M$_\\odot$ pc$^{-2}$]',
-#       3, 3e6)
+pars['HI'] = plot_pars('HI', 3e-1, 3e1)
+pars['H2'] = plot_pars('H$_2$', 3e-1, 3e3)
 pars['P'] = plot_pars(
-       'Presión [M$_\\odot$ pc$^{-2}$]',
+       '$\\Sigma_{gas} (\\Sigma_{gas}+\\Sigma_*)$ [M$_\\odot$ pc$^{-2}$]',
        3, 3e6)
-pars['Rmol'] = plot_pars('$\\Sigma_{\\rm H_2}$ / $\\Sigma_{\\rm HI}$', 3e-2, 3e3)
-pars['SFmol'] = plot_pars('$\Sigma_{\\psi}/\\Sigma_{\\rm H_2}$', 3e-2, 3e1)
+pars['Rmol'] = plot_pars('$\\Sigma_{\\rm H_2}$ / $\\Sigma_{\\rm HI}$', 3e-2, 3e2)
+pars['SFmol'] = plot_pars('$\Sigma_{\\psi}/\\Sigma_{\\rm H_2}$', 3e-1, 3e1)
 pars['sfr'] = plot_pars('SFR[Gyr$^{-1}$]', 3e-2, 3e2)
 
 # Function definitions
@@ -162,7 +154,6 @@ def plot_data(x, y, color, ax):
                         edgecolors=e, linewidths=.2,
                         cmap=cbar.cmap, norm=cbar.norm, alpha=a)
         bad_color = np.where(np.isnan(c))
-        
         ax.plot(xx[bad_color], yy[bad_color], color='gray', linestyle='None',
                 marker=m, ms=s, alpha=a*.1)
     for model in model_list: # For the models, PLOT THE MODELS 
@@ -196,12 +187,11 @@ def column_plot(x, plots, color, save=True, title=None):
     panel_height /= height
     cbar_height /= height
 
-    # Plot data
 
+    # Plot data
     xmin = pars[x].xmin
     xmax = pars[x].xmax
     xscale = pars[x].scale
-
     for i, y in enumerate(plots):              # Loop over the different plots. 
         ax = fig.add_axes([left, bottom+i*panel_height,
                            panel_width, panel_height])   # add a plot
@@ -213,9 +203,16 @@ def column_plot(x, plots, color, save=True, title=None):
         ax.set_yscale(pars[y].scale)
         ax.set_ylabel(pars[y].title,fontsize=fs)
         ax.tick_params(axis='both', which='both', direction='in',
-                       top=True, right=True, labelbottom=(i == 0),labelsize=fs)
+                       top=True, right=True, labelbottom=(i == 0),labelsize=fs,)
+        if pars[y].scale=='log':
+            ymin = pars[y].xmin
+            ymax = pars[y].xmax
+            steps = int(np.log10(ymax))-int(np.log10(ymin))+1
+            if steps>4:
+                steps = 3
+            ax.set_yticks(np.logspace(int(np.log10(ymin)),int(np.log10(ymax)),steps))
         sc = plot_data(x, y, color, ax) #Plotting data and models (see function above)
-
+        
     # Color bar
     ax_cbar = fig.add_axes([left, bottom+n_plots*panel_height+bottom,
                             panel_width, cbar_height])
@@ -231,7 +228,6 @@ def column_plot(x, plots, color, save=True, title=None):
     elif save==True and title!=None:
         fig.savefig(os.path.join('./paper/figs/',title+x+'Ysfr.pdf'))     
         fig.savefig(os.path.join('./paper/figs/',title+x+'Ysfr.jpeg'))       
-    #plt.close()
    
 # <codecell> Marker definition:
     
@@ -249,34 +245,35 @@ MW['marker'] = '*'
 MW['edge'] = 'k'
 MW['size'] = 20
 MW['alpha'] = 1
-# POSSIBILITY: Use a loop to look for the best value of K, with the rest of parameters fixed.     
+
 S_I = np.logspace(0, 4, 10) # Different values of material already accreted. 
 # <codecell> CM
-runcell('Models & plotting functions', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
-kwargs = {'tau_SF': 1.5, 'wind': 2.}
-tau_0 = models.model_run(S_I, model_type='cte',  tau_I=1e-3, **kwargs)
-tau_2 = models.model_run(S_I, model_type='cte', tau_I=2., **kwargs)
-tau_4 = models.model_run(S_I, model_type='cte', tau_I=4., **kwargs)
-tau_inf = models.model_run(S_I, model_type='cte', tau_I=1e3, **kwargs)
 
-model_list = [tau_0, tau_2, tau_4, tau_inf] #[tau_0, 
+kwargs = {'wind': 1.}
+tau_0 = models.model_run(S_I, infall_time_Gyr=1e-3, model_type='cte', include_atom=0, **kwargs)
+tau_2 = models.model_run(S_I, infall_time_Gyr=2., model_type='cte', include_atom=0, **kwargs)
+tau_4 = models.model_run(S_I, infall_time_Gyr=4., model_type='cte', include_atom=0, **kwargs)
+tau_inf = models.model_run(S_I, infall_time_Gyr=1e3, model_type='cte', include_atom=0, **kwargs)
+
+model_list = [tau_0, tau_2, tau_4, tau_inf]
 compute_derived(*model_list)
+
 tau_0['color'], tau_0['style'] = 'red','-'
 tau_2['color'], tau_2['style'] = 'red','--'
 tau_4['color'], tau_4['style']  = 'blue', '-.'
 tau_inf['color'], tau_inf['style'] = 'blue', ':'
 
-plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']#'SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr'
+plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']
 column_plot('stars', plot_list, 'OH',title='_cte_')
 plt.title('CM')
 del plot_list,tau_0,tau_2,tau_4,tau_inf,model_list
 # <codecell> CM+A
-runcell('Models & plotting functions', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
-kwargs = {'tau_SF': 1.5, 'wind': 2.}
-tau_0 = models.model_run(S_I, model_type='cte',  tau_I=1e-3, include_atom =.2, **kwargs)
-tau_2 = models.model_run(S_I, model_type='cte', tau_I=2., include_atom =.2, **kwargs)
-tau_4 = models.model_run(S_I, model_type='cte', tau_I=4., include_atom =.2, **kwargs)
-tau_inf = models.model_run(S_I, model_type='cte', tau_I=1e3, include_atom =.2, **kwargs)
+
+kwargs = {'wind': 2.}
+tau_0 = models.model_run(S_I, infall_time_Gyr=1e-3, model_type='cte', **kwargs)
+tau_2 = models.model_run(S_I, infall_time_Gyr=2., model_type='cte', **kwargs)
+tau_4 = models.model_run(S_I, infall_time_Gyr=4., model_type='cte', **kwargs)
+tau_inf = models.model_run(S_I, infall_time_Gyr=1e3, model_type='cte', **kwargs)
 
 model_list = [tau_0, tau_2, tau_4, tau_inf] 
 compute_derived(*model_list)
@@ -288,17 +285,17 @@ tau_inf['color'], tau_inf['style'] = 'blue', ':'
 
 
 # Parameters for each quantity
-plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']#'SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr'
+plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']
 column_plot('stars', plot_list, 'OH',title='_cte_atom_')
 plt.title('CM+A')
 del plot_list,tau_0,tau_2,tau_4,tau_inf,model_list
 # <codecell> FFM 
-runcell('Models & plotting functions', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
-kwargs = {'wind': 2} 
-tau_0 = models.model_run(S_I, K=.02,  tau_I=1e-3,model_type='variable',eta_dis=100, **kwargs)
-tau_2 = models.model_run(S_I,  K=.02, tau_I=2.,model_type='variable',eta_dis=100,  **kwargs)
-tau_4 = models.model_run(S_I,  K=.02, tau_I=4.,model_type='variable',eta_dis=100, **kwargs)
-tau_inf = models.model_run(S_I, K=.02, tau_I=1e3,model_type='variable',eta_dis=100, **kwargs)
+
+kwargs = {'wind': 1.} 
+tau_0 = models.model_run(S_I, infall_time_Gyr=1e-3, include_atom=0,**kwargs)
+tau_2 = models.model_run(S_I, infall_time_Gyr=2., include_atom=0,**kwargs)
+tau_4 = models.model_run(S_I, infall_time_Gyr=4., include_atom=0,**kwargs)
+tau_inf = models.model_run(S_I, infall_time_Gyr=1e3, include_atom=0,**kwargs)
 
 model_list = [tau_0, tau_2, tau_4, tau_inf] 
 compute_derived(*model_list)
@@ -311,35 +308,37 @@ tau_inf['color'], tau_inf['style'] = 'blue', ':'
 plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']
 column_plot('stars', plot_list, 'OH',title='_variable_')
 plt.title('FFM')
-del plot_list,tau_0,tau_2,tau_4,tau_inf,model_list
+del plot_list,tau_2,tau_4,tau_inf,model_list
 # <codecell> FFM+A
-runcell('Models & plotting functions', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
-kwargs = {'wind': 1}   
-tau_0 = models.model_run(S_I,  K=.002, include_atom =1, tau_I=1e-3,model_type='variable', eta_dis=100,**kwargs)
-tau_2 = models.model_run(S_I,  K=.002, include_atom =1, tau_I=2.,model_type='variable', eta_dis=100,**kwargs)
-tau_4 = models.model_run(S_I,  K=.002, include_atom =1, tau_I=4.,model_type='variable', eta_dis=100,**kwargs)
-tau_inf = models.model_run(S_I, K=.002, include_atom =1, tau_I=1e3,model_type='variable', eta_dis=100,**kwargs)
-# K=50.,
+plt.close('all')  #####################################
 
-model_list = [tau_0, tau_2, tau_4, tau_inf] 
+kwargs = {'wind': 1.}   
+tau_0 = models.model_run(S_I, infall_time_Gyr=1e-3,**kwargs)
+tau_2 = models.model_run(S_I, infall_time_Gyr=2.,**kwargs)
+tau_4 = models.model_run(S_I, infall_time_Gyr=4.,**kwargs)
+tau_inf = models.model_run(S_I, infall_time_Gyr=1e3,**kwargs)
+
+model_list = [tau_0, tau_2, tau_4, tau_inf]
 compute_derived(*model_list)
+
 tau_0['color'], tau_0['style'] = 'red','-'
 tau_2['color'], tau_2['style'] = 'red','--'
 tau_4['color'], tau_4['style'] = 'blue', '-.'
 tau_inf['color'], tau_inf['style'] = 'blue', ':'
 
-plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']
+#plot_list = ['SFmol', 'Rmol', 'SFE', 'gas', 'OH', 'SSFR','sfr']
+plot_list = ['H2','HI','sfr']
 column_plot('stars', plot_list, 'OH',title='_variable_atom')
 plt.title('FFM+A')
-del plot_list,tau_0,tau_2,tau_4,tau_inf,model_list
+del plot_list,tau_2,tau_4#,tau_inf
 # <codecell> Running selected models. 
 
-plt.close('all')
-#runcell('Marker definition:', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
+#plt.close('all')
+
 #runcell('CM', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
 #runcell('CM+A', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
-runcell('FFM', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
-runcell('FFM+A', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
+#runcell('FFM', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
+#runcell('FFM+A', '/home/carlos/Desktop/Paper_TFG/TFG2/plots.py')
 
 
 

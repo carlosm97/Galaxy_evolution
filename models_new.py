@@ -47,6 +47,8 @@ class Model:
         R_mol = mol/gas
         Z = metals/gas
         mat = self.include_atom*atom + self.include_mol*mol
+        if mat==0 :
+            mat = 1e-14
         Psi = self.SFR_law(mat, gas, total)
         pressure = gas * (gas + stars)
         
@@ -84,13 +86,13 @@ class Model:
             - (mol/mat*self.include_mol + eta_diss_eff + self.wind*R_mol) * Psi #
         dsdt = (1-self.R)*Psi
         dodt = ((1-self.enriched_wind)*self.Z_R*self.R - (1+self.wind)*Z) * Psi   
-        
+
         return [didt, dadt, dmdt, dsdt, dodt]
     
     def __init__(self,
                 model_type = 'variable',
                 TauSF_ = 1e-14,
-                include_atom = 0.0, 
+                include_atom = 1., 
                 include_mol = 1.,
                 accreted_mass_Msun_pc2=100.,                                 
                 infall_time_Gyr=3.,
@@ -215,8 +217,7 @@ def model_run(S_I, **kwargs):
 if __name__ == "__main__":
     S_I = np.logspace(0, 4, 20)
     kwargs = {'wind': 1.}   
-    m = model_run(S_I, infall_time_Gyr=4,\
-        model_type='variable', alpha_ff = 100, Tnt_Gyr = 42)
+    m = model_run(S_I, infall_time_Gyr=4, model_type='cte', include_atom=0, eta_dis=0, **kwargs)
     plt.figure()
     plt.plot(m['stars'], m['SFR'], 'k-',label='SFR')
     #plt.plot(m['stars'], m['H2']/m['HI'], 'r-')
